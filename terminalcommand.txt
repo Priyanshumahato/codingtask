@@ -1,0 +1,9 @@
+sudo apt-get install libomp-dev
+gcc -fopenmp program.c -o program
+./program
+
+
+//cpp command
+g++ program_name.cpp -o output_name
+./my_program
+sudo apt-get install g++
