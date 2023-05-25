@@ -1,0 +1,172 @@
+Addition of two Large Vectors
+Code
+#include <stdio.h>
+__global__ void vectorAdd(float *a, float *b, float *c, int n)
+{
+ int i = blockIdx.x * blockDim.x + threadIdx.x;
+ if (i < n)
+ {
+ c[i] = a[i] + b[i];
+ }
+}
+int main()
+{
+ int n = 1000000;
+ size_t bytes = n * sizeof(float);
+ // Allocate memory on the host
+ float *h_a = (float *)malloc(bytes);
+ float *h_b = (float *)malloc(bytes);
+ float *h_c = (float *)malloc(bytes);
+ // Initialize the vectors
+ for (int i = 0; i < n; i++)
+ {
+ h_a[i] = i;
+ h_b[i] = i + 1;
+ }
+ // Allocate memory on the device
+ float *d_a, *d_b, *d_c;
+ cudaMalloc(&d_a, bytes);
+ cudaMalloc(&d_b, bytes);
+ cudaMalloc(&d_c, bytes);
+ // Copy data from host to device
+ cudaMemcpy(d_a, h_a, bytes, cudaMemcpyHostToDevice);
+ cudaMemcpy(d_b, h_b, bytes, cudaMemcpyHostToDevice);
+ // Launch kernel on the device
+ int threadsPerBlock = 256;
+ int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
+ vectorAdd<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, n);
+ // Copy result from device to host
+ cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost);
+ // Print first 10 elements of both vectors
+ printf("First 10 elements of vector a:\n");
+ for (int i = 0; i < 10; i++)
+ {
+ printf("%.2f ", h_a[i]);
+ }
+ printf("\n");
+ printf("Size of vector a: %d\n", n);
+ printf("\n");
+ printf("First 10 elements of vector b:\n");
+ for (int i = 0; i < 10; i++)
+ {
+ printf("%.2f ", h_b[i]);
+ }
+ printf("\n");
+ printf("Size of vector b: %d\n", n);
+ printf("\n");
+ // Print first 10 elements of resultant vector
+ printf("First 10 elements of resultant vector:\n");
+ for (int i = 0; i < 10; i++)
+ {
+ printf("%.2f ", h_c[i]);
+ }
+ printf("\n");
+ // Print size of resultant vector
+ printf("Size of resultant vector: %d\n", n);
+ // Free memory
+ free(h_a);
+ free(h_b);
+ free(h_c);
+ cudaFree(d_a);
+ cudaFree(d_b);
+ cudaFree(d_c);
+ return 0;
+}
+
+
+///////muliplication
+
+#include <stdio.h>
+
+#define N 3 // Size of the square matrices
+
+// CUDA kernel to perform matrix multiplication
+__global__ void matrixMulKernel(int* a, int* b, int* c) {
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    int sum = 0;
+    for (int i = 0; i < N; ++i) {
+        sum += a[row * N + i] * b[i * N + col];
+    }
+
+    c[row * N + col] = sum;
+}
+
+// Function to initialize matrix values
+void initializeMatrix(int* matrix) {
+    for (int i = 0; i < N * N; ++i) {
+        matrix[i] = i;
+    }
+}
+
+// Function to print matrix values
+void printMatrix(const char* label, int* matrix) {
+    printf("%s:\n", label);
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            printf("%d ", matrix[i * N + j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+int main() {
+    // Declare CPU memory pointers
+    int *h_a, *h_b, *h_c;
+    // Declare GPU memory pointers
+    int *d_a, *d_b, *d_c;
+
+    // Allocate CPU memory
+    h_a = (int*)malloc(N * N * sizeof(int));
+    h_b = (int*)malloc(N * N * sizeof(int));
+    h_c = (int*)malloc(N * N * sizeof(int));
+
+    // Initialize input matrices
+    initializeMatrix(h_a);
+    initializeMatrix(h_b);
+
+    // Print input matrices
+    printMatrix("Matrix A", h_a);
+    printMatrix("Matrix B", h_b);
+
+    // Allocate GPU memory
+    cudaMalloc((void**)&d_a, N * N * sizeof(int));
+    cudaMalloc((void**)&d_b, N * N * sizeof(int));
+    cudaMalloc((void**)&d_c, N * N * sizeof(int));
+
+    // Copy input matrices from host to GPU memory
+    cudaMemcpy(d_a, h_a, N * N * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_b, h_b, N * N * sizeof(int), cudaMemcpyHostToDevice);
+
+    // Define grid and block dimensions
+    dim3 gridDim(1, 1);
+    dim3 blockDim(N, N);
+
+    // Launch the kernel on the GPU
+    matrixMulKernel<<<gridDim, blockDim>>>(d_a, d_b, d_c);
+
+    // Copy the result back from GPU to host memory
+    cudaMemcpy(h_c, d_c, N * N * sizeof(int), cudaMemcpyDeviceToHost);
+
+    // Print the result matrix
+    printMatrix("Result Matrix", h_c);
+
+    // Free GPU memory allocation
+    cudaFree(d_a);
+    cudaFree(d_b);
+    cudaFree(d_c);
+
+    // Free CPU memory allocation
+    free(h_a);
+    free(h_b);
+    free(h_c);
+
+    return 0;
+}
+
+
+
+nvcc matrix_mult.cu -o matrix_mult
+./matrix_mult
